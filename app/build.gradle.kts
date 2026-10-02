@@ -15,6 +15,7 @@ check(sdkRevision.matches(Regex("[0-9a-f]{40}"))) {
 android {
     namespace = "com.example.llmedgeexample"
     compileSdk = 35
+
     defaultConfig {
         applicationId = "com.example.llmedgeexample"
         minSdk = 30
@@ -23,46 +24,60 @@ android {
         versionName = "0.3.6"
         buildConfigField("String", "LLMEDGE_SDK_REVISION", "\"$sdkRevision\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
         ndk {
             abiFilters += "arm64-v8a"
         }
     }
+
     signingConfigs {
-        val debugKeystore = file("${System.getProperty("user.home")}/.android/debug.keystore")
+        val debugKeystore =
+            file("${System.getProperty("user.home")}/.android/debug.keystore")
+
         if (debugKeystore.exists()) {
             create("debug_key") {
                 storeFile = debugKeystore
                 storePassword = "android"
                 keyAlias = "androiddebugkey"
-                keyPassword = "android"
+                keyPassword = "androiddebugkey"
             }
         }
     }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+
             val debugKeySigning = signingConfigs.findByName("debug_key")
+
             if (debugKeySigning != null) {
                 signingConfig = debugKeySigning
             }
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
     buildFeatures {
         buildConfig = true
     }
-    kotlinOptions { jvmTarget = "17" }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 val verifySdkRevision =
@@ -75,6 +90,7 @@ val verifySdkRevision =
             // updated by an examples commit that a further SDK commit must then point at —
             // so an exact match is unreachable across a submodule bump. scripts/
             // validate_examples.sh sets this; nothing else should.
+
             if (System.getenv("LLMEDGE_SKIP_SDK_REVISION_CHECK") == "true") {
                 logger.lifecycle(
                     "verifySdkRevision: SKIPPED via LLMEDGE_SKIP_SDK_REVISION_CHECK=true — " +
@@ -86,25 +102,44 @@ val verifySdkRevision =
             }
 
             val sdkRoot = rootProject.projectDir.parentFile
+
             fun git(vararg arguments: String): Pair<Int, String> {
                 val process =
                     ProcessBuilder("git", "-C", sdkRoot.absolutePath, *arguments)
                         .redirectErrorStream(true)
                         .start()
-                val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+
+                val output =
+                    process.inputStream.bufferedReader().use { it.readText() }.trim()
+
                 return process.waitFor() to output
             }
 
-            val (revisionExit, checkedOutRevision) = git("rev-parse", "HEAD")
-            check(revisionExit == 0) { "Unable to read the llmedge SDK revision: $checkedOutRevision" }
+            val (revisionExit, checkedOutRevision) =
+                git("rev-parse", "HEAD")
+
+            check(revisionExit == 0) {
+                "Unable to read the llmedge SDK revision: $checkedOutRevision"
+            }
+
             check(checkedOutRevision == sdkRevision) {
-                "Release requires llmedge SDK $sdkRevision, but the parent checkout is $checkedOutRevision"
+                "Release requires llmedge SDK $sdkRevision, " +
+                    "but the parent checkout is $checkedOutRevision"
             }
 
             val (diffExit, diffOutput) =
-                git("diff", "--quiet", "HEAD", "--", ".", ":(exclude)llmedge-examples")
+                git(
+                    "diff",
+                    "--quiet",
+                    "HEAD",
+                    "--",
+                    ".",
+                    ":(exclude)llmedge-examples"
+                )
+
             check(diffExit == 0) {
-                "Release requires a clean llmedge SDK checkout${diffOutput.takeIf(String::isNotBlank)?.let { ": $it" }.orEmpty()}"
+                "Release requires a clean llmedge SDK checkout" +
+                    diffOutput.takeIf(String::isNotBlank)?.let { ": $it" }.orEmpty()
             }
         }
     }
@@ -114,10 +149,9 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
 }
 
 dependencies {
-    implementation("io.aatricks:llmedge:dev")
+    implementation("io.github.aatricks:llmedge:0.3.9")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
-    // Provides TasksKt.await extension used when awaiting Task<T> from ML Kit
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.activity:activity-ktx:1.8.0")
@@ -125,7 +159,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
-    // Android instrumented test dependencies
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-test:2.0.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
