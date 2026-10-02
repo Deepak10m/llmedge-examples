@@ -41,16 +41,24 @@ jobs:
           sdkmanager "build-tools;35.0.0"
           sdkmanager "cmake;3.22.1"
           sdkmanager "ndk;27.2.12479018"
+
+      - name: Install Vulkan build dependencies
+        run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build
+          sudo apt-get install -y glslc libvulkan-dev ninja-build
+          glslc --version
+
+      - name: Make Gradle executable
+        run: |
+          chmod +x llmedge/gradlew
+          chmod +x llmedge/llmedge-examples/gradlew
 
       - name: Build LLMEdge library
         working-directory: llmedge
         run: |
-          chmod +x gradlew
           ./gradlew :llmedge:assembleRelease
 
-      - name: Prepare AAR
+      - name: Copy LLMEdge AAR
         run: |
           mkdir -p llmedge/llmedge-examples/app/libs
           cp llmedge/llmedge/build/outputs/aar/llmedge-release.aar \
@@ -59,7 +67,6 @@ jobs:
       - name: Build APK
         working-directory: llmedge/llmedge-examples
         run: |
-          chmod +x gradlew
           ./gradlew :app:assembleDebug
 
       - name: Upload APK
