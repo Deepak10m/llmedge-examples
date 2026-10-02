@@ -8,8 +8,16 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+      - name: Checkout LLMEdge
+        uses: actions/checkout@v4
+        with:
+          repository: Aatricks/llmedge
+          path: llmedge
+
       - name: Checkout examples
         uses: actions/checkout@v4
+        with:
+          path: llmedge/llmedge-examples
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -29,16 +37,43 @@ jobs:
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-35"
           sdkmanager "build-tools;35.0.0"
+          sdkmanager "cmake;3.22.1"
+          sdkmanager "ndk;27.2.12479018"
 
-      - name: Make Gradle executable
-        run: chmod +x gradlew
+      - name: Install Vulkan build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y glslc libvulkan-dev ninja-build
+
+      - name: Checkout pinned LLMEdge revision
+        working-directory: llmedge
+        run: |
+          git fetch --depth=1 origin 41469740fdfb8bb8d7dd63ec2ae961256ebe7e27
+          git checkout 41469740fdfb8bb8d7dd63ec2ae961256ebe7e27
+          git submodule update --init --recursive
+
+      - name: Build LLMEdge Android library
+        working-directory: llmedge
+        run: |
+          ./gradlew :llmedge:assembleRelease \
+            -PllmedgeAndroidOpencl=ON \
+            -Pandroid.jniCmakeArgs="-DGGML_VULKAN=ON -DSD_VULKAN=ON" \
+            --no-daemon
+
+      - name: Copy LLMEdge AAR
+        run: |
+          mkdir -p llmedge/llmedge-examples/app/libs
+          cp llmedge/llmedge/build/outputs/aar/llmedge-release.aar \
+             llmedge/llmedge-examples/app/libs/llmedge-release.aar
 
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        working-directory: llmedge/llmedge-examples
+        run: |
+          ./gradlew :app:assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: llmedge-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: llmedge/llmedge-examples/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
