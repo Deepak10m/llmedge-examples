@@ -5,11 +5,21 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout
+      - name: Checkout LLMEdge
         uses: actions/checkout@v4
+        with:
+          repository: Aatricks/llmedge
+          path: llmedge
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Checkout Examples
+        uses: actions/checkout@v4
+        with:
+          path: llmedge/llmedge-examples
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -24,22 +34,36 @@ jobs:
           accept-android-sdk-licenses: true
           log-accepted-android-sdk-licenses: false
 
-      - name: Install Android tools
+      - name: Install Android build tools
         run: |
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-35"
           sdkmanager "build-tools;35.0.0"
           sdkmanager "cmake;3.22.1"
           sdkmanager "ndk;27.2.12479018"
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
 
-      - name: Make Gradle executable
-        run: chmod +x gradlew
+      - name: Build LLMEdge library
+        working-directory: llmedge
+        run: |
+          chmod +x gradlew
+          ./gradlew :llmedge:assembleRelease
+
+      - name: Prepare AAR
+        run: |
+          mkdir -p llmedge/llmedge-examples/app/libs
+          cp llmedge/llmedge/build/outputs/aar/llmedge-release.aar \
+             llmedge/llmedge-examples/app/libs/llmedge-release.aar
 
       - name: Build APK
-        run: ./gradlew :app:assembleDebug
+        working-directory: llmedge/llmedge-examples
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: llmedge-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: llmedge/llmedge-examples/app/build/outputs/apk/debug/*.apk
